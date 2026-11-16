@@ -6,34 +6,10 @@ A hands-on Infrastructure as Code (IaC) project that provisions a complete AWS n
 
 ## Architecture
 
-```mermaid
-flowchart TB
-    Internet((Internet))
-    You[Your PC<br/>SSH from trusted IP]
+```
 
-    subgraph VPC["VPC 10.0.0.0/16"]
-        IGW[Internet Gateway]
+![Architecture Diagram](screenshots/Terraform-Provisioned%20AWS%20Network%20Architecture.png)
 
-        subgraph Public["Public subnets (10.0.1-3.0/24)"]
-            Bastion[Bastion Host<br/>Ubuntu EC2]
-            NAT[NAT Gateway<br/>+ Elastic IP]
-        end
-
-        subgraph Private["Private subnets (10.0.4-6.0/24)"]
-            PrivRes[Private resources<br/>none deployed in this lab]
-        end
-
-        PubRT[Public Route Table<br/>0.0.0.0/0 to IGW]
-        PrivRT[Private Route Table<br/>0.0.0.0/0 to NAT]
-    end
-
-    You -->|SSH 22| Internet
-    Internet <--> IGW
-    IGW <--> Bastion
-    IGW <--> NAT
-    PrivRes -->|outbound only| NAT
-    PubRT -.-> Public
-    PrivRT -.-> Private
 ```
 
 **Key idea:** a subnet is "public" or "private" because of its **route table**, not its name. Public subnets route `0.0.0.0/0` to the Internet Gateway; private subnets route it to the NAT Gateway, which allows outbound-only internet access.
@@ -86,7 +62,9 @@ flowchart TB
 ├── main.tf                     # All AWS resources
 ├── outputs.tf                  # Useful outputs (IPs, IDs)
 ├── .terraform.lock.hcl         # Provider version lock (committed)
-└── .gitignore
+├── .gitignore
+└── screenshots/
+    └── bastion-internet-connectivity.png
 ```
 
 ---
@@ -142,7 +120,7 @@ git clone https://github.com/<your-username>/<your-repo>.git
 cd <your-repo>
 
 # 2. Create your own variable file
-cp terraform.tfvars.example terraform.tfvars
+cp terraform.tfvars
 # Edit it: set my_ip (curl -4 ifconfig.me), ami_id, key_name, public_key_path
 
 # 3. Deploy
@@ -152,8 +130,6 @@ terraform validate
 terraform plan
 terraform apply
 ```
-
-Expected plan: **26 to add**. The NAT Gateway takes 1 to 2 minutes to become available.
 
 ### Verify
 
@@ -165,6 +141,10 @@ ssh -i ~/.ssh/terraform-key ubuntu@<bastion_public_ip>
 ping -c 4 8.8.8.8
 ping -c 4 google.com
 ```
+
+The screenshot below shows successful outbound connectivity from the Bastion to `8.8.8.8`. Run the second ping separately to verify DNS resolution as well.
+
+![Bastion host successfully pinging 8.8.8.8 with no packet loss](screenshots/bastion-internet-connectivity.png)
 
 In the AWS Console, confirm: 6 subnets, public route table to IGW, private route table to NAT, NAT Gateway state `Available`, EC2 status checks `3/3 passed`.
 
@@ -185,8 +165,7 @@ Then confirm in the console that the NAT Gateway is deleted and the Elastic IP i
 - SSH (port 22) is restricted to a single IP (`var.my_ip/32`), never `0.0.0.0/0`.
 - `terraform.tfvars`, state files, and private keys are excluded via `.gitignore`.
 - Only the public key is uploaded to AWS; the private key never leaves your machine.
-- HTTP (port 80) is open to the world in this lab; remove that rule if not needed.
-- State is stored locally. For team or production use, switch to a remote backend (S3 with DynamoDB locking).
+- HTTP (port 80) is open to the world in this lab.
 
 ---
 
@@ -195,22 +174,8 @@ Then confirm in the console that the NAT Gateway is deleted and the Elastic IP i
 | Problem | Likely cause |
 |---|---|
 | `InvalidAMIID.NotFound` | AMI ID does not exist in your chosen region; use an Ubuntu AMI for that region |
-| SSH timeout | `my_ip` changed (new ISP address); update `terraform.tfvars` and re-apply |
 | `Permissions 0644 ... too open` | Run `chmod 600` on your private key |
-| `InvalidKeyPair.Duplicate` | A key pair with that name already exists in AWS; change `key_name` |
 | Destroy hangs on VPC | Resources created manually outside Terraform are still attached |
-
----
-
-## Possible improvements
-
-- Replace the six subnet blocks with one `for_each` loop over `subnet_cidrs`
-- Pin subnets to specific Availability Zones for high availability
-- Use `data "aws_ami"` to fetch the latest Ubuntu AMI automatically
-- Add a private EC2 instance reachable only through the Bastion
-- Add a NAT Gateway per AZ for production resilience
-- Move state to an S3 remote backend
-- Split the code into reusable modules
 
 ---
 
