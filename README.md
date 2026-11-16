@@ -6,11 +6,7 @@ A hands-on Infrastructure as Code (IaC) project that provisions a complete AWS n
 
 ## Architecture
 
-```
-
 ![Architecture Diagram](screenshots/Terraform-Provisioned%20AWS%20Network%20Architecture.png)
-
-```
 
 **Key idea:** a subnet is "public" or "private" because of its **route table**, not its name. Public subnets route `0.0.0.0/0` to the Internet Gateway; private subnets route it to the NAT Gateway, which allows outbound-only internet access.
 
@@ -46,7 +42,6 @@ A hands-on Infrastructure as Code (IaC) project that provisions a complete AWS n
 - `terraform.tfvars` for environment-specific values
 - String interpolation for consistent naming (`"${var.project_name}-vpc"`)
 - Built-in functions: `file()` and `pathexpand()`
-- Output values
 - Workflow: `init`, `fmt`, `validate`, `plan`, `apply`, `destroy`
 
 ---
@@ -60,7 +55,6 @@ A hands-on Infrastructure as Code (IaC) project that provisions a complete AWS n
 ├── terraform.tfvars            # Real values (git-ignored)
 ├── terraform.tfvars.example    # Safe template to copy
 ├── main.tf                     # All AWS resources
-├── outputs.tf                  # Useful outputs (IPs, IDs)
 ├── .terraform.lock.hcl         # Provider version lock (committed)
 ├── .gitignore
 └── screenshots/
